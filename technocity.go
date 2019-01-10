@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	log "logger"
+	"net/http"
 	parsers "parser"
 	"priceloader"
 	"regexp"
@@ -105,6 +106,7 @@ func (pCcustomAct ParserActions) ParserInit(parser *parsers.ParserObject) {
 	parser.Options.AddHeaders(HTTP_HEADERS)
 	parser.Options.Trials = 5
 	parser.Options.Interval = 3
+	parser.Options.Preprocess = pCcustomAct.Preprocess
 }
 
 //Implementation
@@ -120,6 +122,14 @@ func (pCcustomAct ParserActions) ParserRun() {
 }
 
 /* End implementation parser.InterfaceCustomParser */
+
+func (pCcustomAct ParserActions) Preprocess(pReq *http.Request) {
+	if len(pReq.Cookies()) == 0 {
+		log.Debug("NO_REQUEST_COOKIES")
+	} else {
+		pReq.Header.Del("Cookie")
+	}
+}
 
 func (pCcustomAct ParserActions) readCategories(catalog *goquery.Selection, level int) {
 	children := catalog.Children()
