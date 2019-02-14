@@ -2,20 +2,24 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	errs "errorshandler"
 	"flag"
 	"fmt"
+	_ "github.com/lib/pq"
 	log "logger"
 	"net/http"
+	"os"
 	parsers "parser"
 	"priceloader"
 	"regexp"
 	"strings"
+	"webreader"
 
-	goquery "github.com/PuerkitoBio/goquery"
-	html "golang.org/x/net/html"
+	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/net/html"
 )
 
 var (
@@ -23,6 +27,8 @@ var (
 	city         string = ""
 	HTTP_HEADERS map[string]string
 	URL          string = "https://www.technocity.ru"
+	contragent     string = "technocity"
+	contragentAlias string = "technocity"
 )
 
 /* Start implementation parser.InterfaceCustomParser */
@@ -106,7 +112,9 @@ func (pCcustomAct ParserActions) ParserInit(parser *parsers.ParserObject) {
 	parser.Options.AddHeaders(HTTP_HEADERS)
 	parser.Options.Trials = 5
 	parser.Options.Interval = 3
+	parser.Options.PrepareRequest = pCcustomAct.PrepareRequest
 	parser.Options.Preprocess = pCcustomAct.Preprocess
+	parser.Options.HandleRequestError = pCcustomAct.HandleRequestError
 }
 
 //Implementation
@@ -123,12 +131,25 @@ func (pCcustomAct ParserActions) ParserRun() {
 
 /* End implementation parser.InterfaceCustomParser */
 
+func (pCcustomAct ParserActions) PrepareRequest(pReq *http.Request) {
+	if len(pReq.Cookies()) == 0 {
+		log.Debug("NO_REQUEST_COOKIES")
+	} else {
+		pReq.Header.Del("Cookie")
+	}
+}
+
 func (pCcustomAct ParserActions) Preprocess(pReq *http.Request) {
 	if len(pReq.Cookies()) == 0 {
 		log.Debug("NO_REQUEST_COOKIES")
 	} else {
 		pReq.Header.Del("Cookie")
 	}
+}
+
+func (pCcustomAct ParserActions) HandleRequestError (resp *http.Response, req *http.Request, options *webreader.RequestOptions) {
+	options.SetRandUserAgent()
+	req.Header.Set("User-Agent", options.UserAgent)
 }
 
 func (pCcustomAct ParserActions) readCategories(catalog *goquery.Selection, level int) {
@@ -165,8 +186,56 @@ func init() {
 	//logMode = "debug"
 }
 
+
+type product struct{
+	id int
+	articul string
+	name string
+	price float32
+}
+
 func main() {
 	flag.Parse()
+	host, _ := os.Hostname()
+	log.Info("HOST: ", host)
+	connStr := "user=postgres password=corega dbname=testdb sslmode=disable"
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Error(err)
+	}
+	defer db.Close()
+	price := 231.00
+	rows, err := db.Query("SELECT * FROM enigma.price WHERE price > $1", price)
+	if err != nil {
+		log.Error(err)
+	}
+	defer rows.Close()
+	products := []product{}
+	for rows.Next(){
+		p := product{}
+		err := rows.Scan(&p.id, &p.articul, &p.name, &p.price)
+		if err != nil{
+			fmt.Println(err)
+			continue
+		}
+		products = append(products, p)
+	}
+	for _, p := range products{
+		fmt.Println(p.id, p.articul, p.name, p.price)
+	}
+/*
+
+	result, err := db.Exec("insert into Products (model, company, price) values ('iPhone X', $1, $2)",
+		"Apple", 72000)
+	if err != nil{
+		panic(err)
+	}
+
+*/
+
+
+
+
 	log.SetLogLevel(logMode)
 	log.Info("LOGLEVEL", logMode)
 	log.Info("START")
