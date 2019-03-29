@@ -5,29 +5,31 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	errs "errorshandler"
 	"flag"
 	"fmt"
-	_ "github.com/lib/pq"
-	log "logger"
 	"net/http"
 	"os"
-	parsers "parser"
-	"priceloader"
 	"regexp"
 	"strings"
-	"webreader"
+
+	parsers "github.com/kraser/parser"
+
+	errs "github.com/kraser/errorshandler"
+	log "github.com/kraser/logger"
+	"github.com/kraser/priceloader"
+	"github.com/kraser/webreader"
+	_ "github.com/lib/pq"
 
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/net/html"
 )
 
 var (
-	logMode      string = "info"
-	city         string = ""
-	HTTP_HEADERS map[string]string
-	URL          string = "https://www.technocity.ru"
-	contragent     string = "technocity"
+	logMode         string = "info"
+	city            string = ""
+	HTTP_HEADERS    map[string]string
+	URL             string = "https://www.technocity.ru"
+	contragent      string = "technocity"
 	contragentAlias string = "technocity"
 )
 
@@ -118,7 +120,7 @@ func (pCcustomAct ParserActions) ParserInit(parser *parsers.ParserObject) {
 }
 
 //Implementation
-func (pCcustomAct ParserActions) CreateItemsUrl(url string) string {
+func (pCcustomAct ParserActions) CreateItemsPageUrl(url string) string {
 	s := []string{url, "#flt-allShowed:1;sortBy:default"}
 	log.Debug(strings.Join(s, ""))
 	return strings.Join(s, "")
@@ -147,7 +149,7 @@ func (pCcustomAct ParserActions) Preprocess(pReq *http.Request) {
 	}
 }
 
-func (pCcustomAct ParserActions) HandleRequestError (resp *http.Response, req *http.Request, options *webreader.RequestOptions) {
+func (pCcustomAct ParserActions) HandleRequestError(resp *http.Response, req *http.Request, options *webreader.RequestOptions) {
 	options.SetRandUserAgent()
 	req.Header.Set("User-Agent", options.UserAgent)
 }
@@ -186,12 +188,11 @@ func init() {
 	//logMode = "debug"
 }
 
-
-type product struct{
-	id int
+type product struct {
+	id      int
 	articul string
-	name string
-	price float32
+	name    string
+	price   float32
 }
 
 func main() {
@@ -211,30 +212,27 @@ func main() {
 	}
 	defer rows.Close()
 	products := []product{}
-	for rows.Next(){
+	for rows.Next() {
 		p := product{}
 		err := rows.Scan(&p.id, &p.articul, &p.name, &p.price)
-		if err != nil{
+		if err != nil {
 			fmt.Println(err)
 			continue
 		}
 		products = append(products, p)
 	}
-	for _, p := range products{
+	for _, p := range products {
 		fmt.Println(p.id, p.articul, p.name, p.price)
 	}
-/*
+	/*
 
-	result, err := db.Exec("insert into Products (model, company, price) values ('iPhone X', $1, $2)",
-		"Apple", 72000)
-	if err != nil{
-		panic(err)
-	}
+		result, err := db.Exec("insert into Products (model, company, price) values ('iPhone X', $1, $2)",
+			"Apple", 72000)
+		if err != nil{
+			panic(err)
+		}
 
-*/
-
-
-
+	*/
 
 	log.SetLogLevel(logMode)
 	log.Info("LOGLEVEL", logMode)
